@@ -1,0 +1,71 @@
+# One-paper deployment verification for the initial run.
+name: Verify one paper
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      OPENAI_BASE_URL: https://api.deepseek.com
+      MODEL_NAME: deepseek-flash
+      LANGUAGE: Chinese
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          uv sync
+      - name: Fetch one paper
+        run: |
+          mkdir -p data
+          .venv/bin/python - <<'PY'
+          import arxiv, datetime, json
+          paper = next(arxiv.Client().results(arxiv.Search(id_list=["2610.39615"])))
+          item = {
+              "id": paper.entry_id.rsplit("/", 1)[-1],
+              "categories": paper.categories,
+              "pdf": paper.pdf_url,
+              "abs": paper.entry_id,
+              "authors": [a.name for a in paper.authors],
+              "title": paper.title,
+              "comment": paper.comment,
+              "summary": paper.summary,
+          }
+          name = datetime.datetime.now(datetime.timezone.utc).date().isoformat()
+          with open(f"data/{name}.jsonl", "w", encoding="utf-8") as f:
+              f.write(json.dumps(item, ensure_ascii=False) + "\n")
+          PY
+      - name: Generate and verify DeepSeek summary
+        run: |
+          today=$(date -u +%F)
+          cd ai
+          ../.venv/bin/python enhance.py --data "../data/${today}.jsonl"
+          ../.venv/bin/python - "../data/${today}_AI_enhanced_Chinese.jsonl" <<'PY'
+          import json, sys
+          with open(sys.argv[1], encoding="utf-8") as f:
+              rows = [json.loads(line) for line in f if line.strip()]
+          assert len(rows) == 1 and rows[0].get("AI", {}).get("tldr"), "Missing summary"
+          print("Verified one AI-enhanced paper")
+          PY
+      - name: Publish initial data if no data branch exists
+        run: |
+          if git ls-remote --exit-code --heads origin data >/dev/null; then
+            echo "Data branch already exists; leaving its contents untouched."
+            exit 0
+          fi
+          today=$(date -u +%F)
+          mkdir -p assets
+          printf '%s\n' "${today}_AI_enhanced_Chinese.jsonl" > assets/file-list.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan data
+          git rm -rf --cached . >/dev/null
+          git add -f "data/${today}.jsonl" "data/${today}_AI_enhanced_Chinese.jsonl" assets/file-list.txt
+          git commit -m "Initialize data with one verified paper"
+          git push origin data
