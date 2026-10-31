@@ -59,9 +59,10 @@ def main():
                 break
             except (arxiv.ArxivError, requests.RequestException) as error:
                 if isinstance(error, arxiv.HTTPError) and error.status != 429 and error.status < 500:
-                    raise
+                    raise RuntimeError(f"arXiv returned HTTP {error.status}") from None
                 if attempt == 4:
-                    raise
+                    status = f" HTTP {error.status}" if isinstance(error, arxiv.HTTPError) else ""
+                    raise RuntimeError(f"arXiv request failed after retries:{status}") from None
                 delay = 60 * 2 ** attempt
                 print(f"arXiv request failed ({type(error).__name__}); retrying in {delay}s", flush=True)
                 time.sleep(delay)
