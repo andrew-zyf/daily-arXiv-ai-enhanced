@@ -3,6 +3,9 @@ name: Verify one paper
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/verify-one-paper.yml
 
 permissions:
   contents: write
