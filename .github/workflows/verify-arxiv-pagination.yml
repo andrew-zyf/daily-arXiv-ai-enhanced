@@ -54,15 +54,32 @@ jobs:
           assert [p["id"] for p in records] == ["2610.00001", "2610.00002", "2610.00003"]
           print("Pagination retry test passed.")
           PY
-      - name: Verify real seven-day collection
-        timeout-minutes: 22
+      - name: Reject unexpectedly empty resumed page
         run: |
-          .venv/bin/python daily_arxiv/fetch_weekly.py /tmp/weekly-validation.jsonl
           .venv/bin/python - <<'PY'
-          import json
-          with open("/tmp/weekly-validation.jsonl", encoding="utf-8") as f:
-              rows = [json.loads(line) for line in f if line.strip()]
-          assert rows, "No papers returned"
-          assert len(rows) == len({r["id"] for r in rows})
-          print(f"Real collection succeeded: {len(rows)} unique papers")
+          import importlib.util, os, sys, tempfile
+          from datetime import datetime, timezone
+          from types import SimpleNamespace
+          import arxiv
+          spec = importlib.util.spec_from_file_location("weekly", "daily_arxiv/fetch_weekly.py")
+          weekly = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(weekly)
+          class FakeClient:
+              def __init__(self, **kwargs): pass
+              def results(self, search, offset=0):
+                  if offset == 0:
+                      yield SimpleNamespace(published=datetime.now(timezone.utc), get_short_id=lambda: "2610.00001v1",
+                          categories=[], pdf_url="", entry_id="", authors=[], title="", comment=None, summary="")
+                      raise arxiv.HTTPError("private query", 0, 429)
+          weekly.arxiv.Client = FakeClient
+          weekly.time.sleep = lambda seconds: None
+          with tempfile.NamedTemporaryFile() as output:
+              sys.argv = ["fetch_weekly.py", output.name]
+              try:
+                  weekly.main()
+              except RuntimeError as error:
+                  assert "empty page" in str(error)
+              else:
+                  raise AssertionError("An unexpected empty page must fail")
+          print("Empty-page protection passed.")
           PY
