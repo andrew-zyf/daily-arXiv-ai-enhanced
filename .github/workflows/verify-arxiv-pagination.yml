@@ -1,0 +1,68 @@
+name: Verify arXiv pagination
+on:
+  push:
+    paths:
+      - .github/workflows/verify-arxiv-pagination.yml
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      CATEGORIES: ${{ secrets.CATEGORIES }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          uv sync
+      - name: Verify retry resumes at the failed page
+        run: |
+          .venv/bin/python - <<'PY'
+          import importlib.util, json, os, sys, tempfile
+          from datetime import datetime, timedelta, timezone
+          from types import SimpleNamespace
+          import arxiv
+          spec = importlib.util.spec_from_file_location("weekly", "daily_arxiv/fetch_weekly.py")
+          weekly = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(weekly)
+          now = datetime.now(timezone.utc)
+          def paper(pid, age):
+              return SimpleNamespace(published=now-timedelta(days=age), get_short_id=lambda: pid+"v1",
+                  categories=["test"], pdf_url="https://example.com/pdf", entry_id="https://example.com/abs",
+                  authors=[SimpleNamespace(name="A")], title="Title", comment=None, summary="Abstract")
+          calls = []
+          class FakeClient:
+              def __init__(self, **kwargs): pass
+              def results(self, search, offset=0):
+                  calls.append(offset)
+                  if offset == 0:
+                      yield paper("2610.00001", 1)
+                      yield paper("2610.00002", 2)
+                      raise arxiv.HTTPError("test", 0, 429)
+                  if offset == 2:
+                      yield paper("2610.00003", 3)
+                      yield paper("2610.00004", 8)
+          weekly.arxiv.Client = FakeClient
+          weekly.time.sleep = lambda seconds: None
+          with tempfile.NamedTemporaryFile() as output:
+              sys.argv = ["fetch_weekly.py", output.name]
+              weekly.main()
+              with open(output.name, encoding="utf-8") as f:
+                  records = [json.loads(line) for line in f]
+          assert calls == [0, 2], calls
+          assert [p["id"] for p in records] == ["2610.00001", "2610.00002", "2610.00003"]
+          print("Pagination retry test passed.")
+          PY
+      - name: Verify real seven-day collection
+        timeout-minutes: 22
+        run: |
+          .venv/bin/python daily_arxiv/fetch_weekly.py /tmp/weekly-validation.jsonl
+          .venv/bin/python - <<'PY'
+          import json
+          with open("/tmp/weekly-validation.jsonl", encoding="utf-8") as f:
+              rows = [json.loads(line) for line in f if line.strip()]
+          assert rows, "No papers returned"
+          assert len(rows) == len({r["id"] for r in rows})
+          print(f"Real collection succeeded: {len(rows)} unique papers")
+          PY
