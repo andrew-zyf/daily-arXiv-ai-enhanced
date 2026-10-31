@@ -22,11 +22,11 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TZ: Asia/Shanghai
-      CATEGORIES: ${{ vars.CATEGORIES }}
-      LANGUAGE: ${{ vars.LANGUAGE }}
-      MODEL_NAME: ${{ vars.MODEL_NAME }}
-      COMMIT_EMAIL: ${{ vars.EMAIL }}
-      COMMIT_NAME: ${{ vars.NAME }}
+      CATEGORIES: ${{ secrets.CATEGORIES }}
+      LANGUAGE: ${{ secrets.LANGUAGE }}
+      MODEL_NAME: ${{ secrets.MODEL_NAME }}
+      COMMIT_EMAIL: ${{ secrets.EMAIL }}
+      COMMIT_NAME: ${{ secrets.NAME }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       OPENAI_BASE_URL: https://api.deepseek.com
 
