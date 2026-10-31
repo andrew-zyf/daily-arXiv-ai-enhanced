@@ -54,7 +54,7 @@ jobs:
         export OPENAI_BASE_URL="https://api.deepseek.com"
         export TOKEN_GITHUB=${{ secrets.TOKEN_GITHUB }}
         export LANGUAGE="Chinese"
-        export CATEGORIES="cs.CV,cs.GR,cs.CL,cs.AI,cs.CE,cs.GT,cs.IT,cs.LG"
+        export CATEGORIES="cs.AR,cs.RO,cs.CV,cs.LG,cs.OS,eess.SY"
         export MODEL_NAME="deepseek-flash"
         
         # 使用Scrapy爬取
@@ -215,8 +215,8 @@ jobs:
     - name: Commit code changes to main branch
       if: steps.dedup_check.outputs.has_new_content == 'true'
       run: |
-        git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-        git config --global user.name "github-actions[bot]"
+        git config --global user.email "yf.helper@gmail.com"
+        git config --global user.name "Andrew Zhang"
         
         # 添加所有代码文件，但排除数据文件 / Add all code files, but exclude data files
         git add js/data-config.js
@@ -276,8 +276,8 @@ jobs:
     - name: Setup and commit to data branch
       if: steps.dedup_check.outputs.has_new_content == 'true'
       run: |
-        git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-        git config --global user.name "github-actions[bot]"
+        git config --global user.email "yf.helper@gmail.com"
+        git config --global user.name "Andrew Zhang"
         
         echo "设置 data 分支... / Setting up data branch..."
         today=${{ steps.crawl_step.outputs.crawl_date }}
