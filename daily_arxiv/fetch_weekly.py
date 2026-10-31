@@ -25,14 +25,16 @@ def main():
     query = f"({category_query}) AND submittedDate:[{start_term} TO {end_term}]"
     search = arxiv.Search(query=query, max_results=None, sort_by=arxiv.SortCriterion.SubmittedDate,
                           sort_order=arxiv.SortOrder.Descending)
-    client = arxiv.Client(page_size=100, delay_seconds=3, num_retries=0)
+    client = arxiv.Client(page_size=500, delay_seconds=10, num_retries=0)
     seen = set()
     count = 0
+    offset = 0
 
     with open(sys.argv[1], "w", encoding="utf-8") as output:
         for attempt in range(5):
             try:
-                for paper in client.results(search):
+                for paper in client.results(search, offset=offset):
+                    offset += 1
                     if paper.published < start:
                         break
                     if paper.published >= now:
