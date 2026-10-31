@@ -17,7 +17,10 @@ def main():
 
     now = datetime.now(timezone.utc)
     start = now - timedelta(days=7)
-    query = " OR ".join(f"cat:{category}" for category in categories)
+    category_query = " OR ".join(f"cat:{category}" for category in categories)
+    start_term = start.strftime("%Y%m%d%H%M")
+    end_term = now.strftime("%Y%m%d%H%M")
+    query = f"({category_query}) AND submittedDate:[{start_term} TO {end_term}]"
     search = arxiv.Search(query=query, max_results=None, sort_by=arxiv.SortCriterion.SubmittedDate,
                           sort_order=arxiv.SortOrder.Descending)
     client = arxiv.Client(page_size=100, delay_seconds=3, num_retries=5)
