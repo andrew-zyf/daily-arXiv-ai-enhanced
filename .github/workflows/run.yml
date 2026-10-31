@@ -22,7 +22,7 @@ jobs:
       LANGUAGE: ${{ vars.LANGUAGE }}
       MODEL_NAME: ${{ vars.MODEL_NAME }}
       COMMIT_EMAIL: ${{ vars.EMAIL }}
-      COMMIT_NAME: ${{ vars.NAME || 'Andrew Zhang' }}
+      COMMIT_NAME: ${{ vars.NAME }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       OPENAI_BASE_URL: https://api.deepseek.com
 
