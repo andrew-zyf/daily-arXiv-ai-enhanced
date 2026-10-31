@@ -1,0 +1,67 @@
+# Temporary validation of weekly collection.
+name: Verify weekly retry
+
+on:
+  push:
+    paths:
+      - .github/workflows/verify-weekly-retry.yml
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      CATEGORIES: ${{ vars.CATEGORIES }}
+      LANGUAGE: ${{ vars.LANGUAGE }}
+      MODEL_NAME: ${{ vars.MODEL_NAME }}
+      COMMIT_EMAIL: ${{ vars.EMAIL }}
+      COMMIT_NAME: ${{ vars.NAME }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          uv sync
+      - name: Check settings and retry behavior
+        run: |
+          .venv/bin/python - <<'PY'
+          import importlib.util, json, os, sys, tempfile
+          from datetime import datetime, timedelta, timezone
+          from types import SimpleNamespace
+          import arxiv
+
+          for key in ("CATEGORIES", "LANGUAGE", "MODEL_NAME", "COMMIT_EMAIL", "COMMIT_NAME"):
+              assert os.environ.get(key), f"Missing {key}"
+          spec = importlib.util.spec_from_file_location("weekly", "daily_arxiv/fetch_weekly.py")
+          weekly = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(weekly)
+          now = datetime.now(timezone.utc)
+          def paper(pid, date):
+              return SimpleNamespace(published=date, get_short_id=lambda: pid+"v1",
+                  categories=["cs.AR"], pdf_url="https://arxiv.org/pdf/"+pid,
+                  entry_id="https://arxiv.org/abs/"+pid, authors=[SimpleNamespace(name="A")],
+                  title="A title", comment=None, summary="An abstract")
+          calls = []
+          class FakeClient:
+              def __init__(self, **kwargs): pass
+              def results(self, search):
+                  calls.append(1)
+                  yield paper("2610.00001", now-timedelta(days=1))
+                  if len(calls) == 1:
+                      raise arxiv.HTTPError("test", 0, 429)
+                  yield paper("2610.00001", now-timedelta(days=1))
+                  yield paper("2610.00002", now-timedelta(days=2))
+                  yield paper("2610.00003", now-timedelta(days=8))
+          weekly.arxiv.Client = FakeClient
+          weekly.time.sleep = lambda seconds: None
+          with tempfile.NamedTemporaryFile() as output:
+              sys.argv = ["fetch_weekly.py", output.name]
+              weekly.main()
+              with open(output.name, encoding="utf-8") as f:
+                  records = [json.loads(line) for line in f]
+          assert len(calls) == 2
+          assert [p["id"] for p in records] == ["2610.00001", "2610.00002"]
+          print("Repository variables and transient retry verified")
+          PY
