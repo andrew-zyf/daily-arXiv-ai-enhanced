@@ -1,4 +1,4 @@
-# One-time integration check for weekly arXiv collection.
+# One-time bounded integration check for weekly arXiv collection.
 name: Verify weekly collection
 
 on:
