@@ -12,6 +12,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: weekly-arxiv-collection
+  cancel-in-progress: false
+
 jobs:
   build:
 
