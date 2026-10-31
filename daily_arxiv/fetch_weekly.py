@@ -32,6 +32,7 @@ def main():
 
     with open(sys.argv[1], "w", encoding="utf-8") as output:
         for attempt in range(5):
+            starting_offset = offset
             try:
                 for paper in client.results(search, offset=offset):
                     offset += 1
@@ -56,6 +57,8 @@ def main():
                     output.write(json.dumps(item, ensure_ascii=False) + "\n")
                     count += 1
 
+                if attempt and starting_offset and offset == starting_offset:
+                    raise RuntimeError("arXiv returned an empty page when resuming collection")
                 break
             except (arxiv.ArxivError, requests.RequestException) as error:
                 if isinstance(error, arxiv.HTTPError) and error.status != 429 and error.status < 500:
