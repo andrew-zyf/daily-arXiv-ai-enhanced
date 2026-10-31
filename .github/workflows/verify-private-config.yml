@@ -1,0 +1,24 @@
+name: Verify private configuration
+on:
+  push:
+    paths:
+      - .github/workflows/verify-private-config.yml
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      CATEGORIES: ${{ secrets.CATEGORIES }}
+      LANGUAGE: ${{ secrets.LANGUAGE }}
+      MODEL_NAME: ${{ secrets.MODEL_NAME }}
+      COMMIT_EMAIL: ${{ secrets.EMAIL }}
+      COMMIT_NAME: ${{ secrets.NAME }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    steps:
+      - name: Verify required settings exist
+        run: |
+          for key in CATEGORIES LANGUAGE MODEL_NAME COMMIT_EMAIL COMMIT_NAME OPENAI_API_KEY; do
+            if [ -z "${!key}" ]; then echo "Missing configuration: $key" >&2; exit 1; fi
+          done
+          echo "All required settings are available."
