@@ -56,6 +56,7 @@ jobs:
 
     - name: Crawl arXiv papers
       id: crawl_step
+      timeout-minutes: 45
       run: |
         source .venv/bin/activate
         today=$(date "+%Y-%m-%d")
