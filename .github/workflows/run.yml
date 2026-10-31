@@ -18,9 +18,24 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TZ: Asia/Shanghai
+      CATEGORIES: ${{ vars.CATEGORIES }}
+      LANGUAGE: ${{ vars.LANGUAGE }}
+      MODEL_NAME: ${{ vars.MODEL_NAME }}
+      COMMIT_EMAIL: ${{ vars.EMAIL }}
+      COMMIT_NAME: ${{ vars.NAME || 'Andrew Zhang' }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      OPENAI_BASE_URL: https://api.deepseek.com
 
     steps:
     - uses: actions/checkout@v4
+    - name: Validate repository variables
+      run: |
+        for key in CATEGORIES LANGUAGE MODEL_NAME COMMIT_EMAIL COMMIT_NAME OPENAI_API_KEY; do
+          if [ -z "${!key}" ]; then
+            echo "Missing required configuration: $key" >&2
+            exit 1
+          fi
+        done
     - name: Install dependencies
       run: |
         curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -52,12 +67,6 @@ jobs:
         fi
         
         cd daily_arxiv
-        export OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
-        export OPENAI_BASE_URL="https://api.deepseek.com"
-        export TOKEN_GITHUB=${{ secrets.TOKEN_GITHUB }}
-        export LANGUAGE="Chinese"
-        export CATEGORIES="cs.AR,cs.RO,cs.CV,cs.LG,cs.OS,eess.SY"
-        export MODEL_NAME="deepseek-flash"
         
         # 使用Scrapy爬取
         # Use Scrapy to crawl
@@ -119,10 +128,6 @@ jobs:
         echo "开始AI增强处理... / Starting AI enhancement processing..."
         
         cd ai
-        export OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
-        export OPENAI_BASE_URL="https://api.deepseek.com"
-        export LANGUAGE="Chinese"
-        export MODEL_NAME="deepseek-flash"
         
         python enhance.py --data ../data/${today}.jsonl
         
@@ -141,7 +146,6 @@ jobs:
         echo "转换为Markdown格式... / Converting to Markdown format..."
         
         # 设置环境变量 / Set environment variables
-        export LANGUAGE="Chinese"
         
         cd to_md
         
@@ -217,8 +221,8 @@ jobs:
     - name: Commit code changes to main branch
       if: steps.dedup_check.outputs.has_new_content == 'true'
       run: |
-        git config --global user.email "yf.helper@gmail.com"
-        git config --global user.name "Andrew Zhang"
+        git config --global user.email "$COMMIT_EMAIL"
+        git config --global user.name "$COMMIT_NAME"
         
         # 添加所有代码文件，但排除数据文件 / Add all code files, but exclude data files
         git add js/data-config.js
@@ -278,8 +282,8 @@ jobs:
     - name: Setup and commit to data branch
       if: steps.dedup_check.outputs.has_new_content == 'true'
       run: |
-        git config --global user.email "yf.helper@gmail.com"
-        git config --global user.name "Andrew Zhang"
+        git config --global user.email "$COMMIT_EMAIL"
+        git config --global user.name "$COMMIT_NAME"
         
         echo "设置 data 分支... / Setting up data branch..."
         today=${{ steps.crawl_step.outputs.crawl_date }}
