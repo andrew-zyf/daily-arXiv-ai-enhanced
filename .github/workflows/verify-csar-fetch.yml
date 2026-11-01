@@ -1,5 +1,6 @@
 name: Verify selected arXiv category
 on:
+  workflow_dispatch:
   push:
     paths:
       - .github/workflows/verify-csar-fetch.yml
